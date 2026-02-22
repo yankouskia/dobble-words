@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+<title>ДОББЛЬ СЛОВА</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Arial Black', Arial, sans-serif; background: #1a1a2e; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+
+#startScreen, #gameScreen, #winScreen, #flashOverlay {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+}
+
+#startScreen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  z-index: 10;
+}
+#startScreen h1 { font-size: 12vw; color: #fff; text-shadow: 3px 3px 6px rgba(0,0,0,0.3); margin-bottom: 2vh; }
+#startScreen p { font-size: 5vw; color: rgba(255,255,255,0.8); margin-bottom: 4vh; }
+#startBtn {
+  font-size: 8vw; padding: 3vh 10vw; border: none; border-radius: 50px;
+  background: #ff6b6b; color: #fff; font-family: inherit; font-weight: bold;
+  cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+#gameScreen { display: none; z-index: 5; }
+
+.playerHalf {
+  position: absolute; left: 0; width: 100%; height: 50%; display: flex;
+  flex-direction: column; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+#player1Half { top: 0; transform: rotate(180deg); background: #16213e; }
+#player2Half { top: 50%; background: #1a1a2e; }
+
+.scoreBar {
+  position: absolute; width: 100%; text-align: center;
+  font-size: 5vw; color: #fff; padding: 1vh 0; z-index: 2;
+}
+#player1Half .scoreBar { bottom: 0; }
+#player2Half .scoreBar { top: 0; }
+
+.cardContainer {
+  position: relative; width: min(70vw, 38vh); height: min(70vw, 38vh);
+}
+.card {
+  width: 100%; height: 100%; border-radius: 50%; background: #fff;
+  position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.card-word {
+  position: absolute; font-weight: bold; cursor: pointer; white-space: nowrap;
+  line-height: 1; padding: 2px 4px;
+}
+
+#flashOverlay {
+  display: none; z-index: 20; background: rgba(0, 200, 0, 0.85);
+  flex-direction: column; align-items: center; justify-content: center;
+}
+#flashOverlay .flashWord {
+  font-size: 15vw; color: #fff; font-weight: bold; text-shadow: 3px 3px 8px rgba(0,0,0,0.4);
+}
+#flashOverlay .flashWordFlipped {
+  font-size: 15vw; color: #fff; font-weight: bold; text-shadow: 3px 3px 8px rgba(0,0,0,0.4);
+  transform: rotate(180deg); position: absolute; top: 10vh;
+}
+#flashOverlay .flashWordBottom {
+  position: absolute; bottom: 10vh;
+}
+
+#winScreen {
+  display: none; z-index: 30;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  flex-direction: column; align-items: center; justify-content: center;
+}
+#winScreen h1 { font-size: 14vw; color: #fff; text-shadow: 3px 3px 8px rgba(0,0,0,0.3); }
+#winScreen p { font-size: 6vw; color: rgba(255,255,255,0.9); margin: 3vh 0; }
+#newGameBtn {
+  font-size: 7vw; padding: 2.5vh 8vw; border: none; border-radius: 50px;
+  background: #fff; color: #f5576c; font-family: inherit; font-weight: bold;
+  cursor: pointer; margin-top: 3vh;
+}
+
+.divider {
+  position: absolute; top: 50%; left: 0; width: 100%; height: 3px;
+  background: rgba(255,255,255,0.15); z-index: 6;
+}
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <h1>ДОББЛЬ</h1>
+  <p>НАЙДИ ОДИНАКОВОЕ СЛОВО!</p>
+  <button id="startBtn" onclick="startGame()">ИГРАТЬ</button>
+</div>
+
+<div id="gameScreen">
+  <div id="player1Half" class="playerHalf">
+    <div class="scoreBar"><span id="score1">ИГРОК 1: 0</span></div>
+    <div class="cardContainer"><div class="card" id="card1"></div></div>
+  </div>
+  <div class="divider"></div>
+  <div id="player2Half" class="playerHalf">
+    <div class="scoreBar"><span id="score2">ИГРОК 2: 0</span></div>
+    <div class="cardContainer"><div class="card" id="card2"></div></div>
+  </div>
+</div>
+
+<div id="flashOverlay">
+  <div class="flashWord flashWordFlipped" id="flashWord1"></div>
+  <div class="flashWord flashWordBottom" id="flashWord2"></div>
+</div>
+
+<div id="winScreen">
+  <h1 id="winTitle">ПОБЕДА!</h1>
+  <p id="winText"></p>
+  <button id="newGameBtn" onclick="startGame()">НОВАЯ ИГРА</button>
+</div>
+
+<script>
+const WORDS = [
+  'КОТ','ДОМ','СУП','НОС','РОТ','СОН','ЛЕС','МЯЧ',
+  'СЫР','ЧАЙ','ЛУК','МАК','ДЫМ','ЖУК','ПЁС','ЁЖ',
+  'ЛЁД','МЁД','РАК','КИТ','ШАР','ТОК','ЛУЧ','МИР',
+  'САД','СОК','ГОД','ДУБ','БОР','ЯМА','ОСА','ИВА',
+  'ЕЛЬ','РУКА','НОГА','МАМА','ПАПА','КАША','ЛУНА','РЫБА',
+  'ГОРА','РЕКА','МОСТ','ПОРТ','КРАН','СТУЛ','СТОЛ','ТОРТ',
+  'ПАРК','СЛОН','ВОЛК','ЛИСА','МЫШЬ','ЗИМА','ЛЕТО','ПАР','ЛАК'
+];
+
+// Projective plane order 7: 57 cards, 8 words each, any 2 share exactly 1
+function generateCards() {
+  const n = 7;
+  const cards = [];
+  // Card 0: symbols 0..n
+  cards.push([...Array(n+1).keys()]);
+  // Cards 1..n: symbol 0, then n+1 + i*n + j for j=0..n-1
+  for (let i = 0; i < n; i++) {
+    const card = [0];
+    for (let j = 0; j < n; j++) card.push(n + 1 + i * n + j);
+    cards.push(card);
+  }
+  // Remaining n*n cards
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const card = [i + 1];
+      for (let k = 0; k < n; k++) {
+        card.push(n + 1 + k * n + ((i * k + j) % n));
+      }
+      cards.push(card);
+    }
+  }
+  return cards;
+}
+
+const CARDS = generateCards();
+let deck = [];
+let scores = [0, 0];
+let card1Idx, card2Idx;
+let locked = false;
+const WIN_SCORE = 20;
+const BRIGHT_COLORS = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e84393','#00b894','#fd79a8','#6c5ce7','#00cec9','#d63031','#e17055','#fdcb6e','#55a3e8'];
+
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+function findMatch(c1, c2) {
+  for (const w of CARDS[c1]) { if (CARDS[c2].includes(w)) return WORDS[w]; }
+  return null;
+}
+
+function placeWords(cardEl, cardIdx, player) {
+  cardEl.innerHTML = '';
+  const words = CARDS[cardIdx].map(i => WORDS[i]);
+  const rect = cardEl.getBoundingClientRect();
+  const R = rect.width / 2;
+  const placed = [];
+  const shuffled = shuffle([...words]);
+
+  for (const word of shuffled) {
+    const fontSize = (word.length <= 3 ? (14 + Math.random() * 8) : (11 + Math.random() * 6)) * R / 100;
+    const rotation = (Math.random() - 0.5) * 60;
+    const color = BRIGHT_COLORS[Math.random() * BRIGHT_COLORS.length | 0];
+
+    let bestPos = null;
+    for (let attempt = 0; attempt < 150; attempt++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.random() * (R * 0.65);
+      const x = R + Math.cos(angle) * dist;
+      const y = R + Math.sin(angle) * dist;
+
+      const estW = word.length * fontSize * 0.65;
+      const estH = fontSize * 1.2;
+      const rad = rotation * Math.PI / 180;
+      const cosR = Math.abs(Math.cos(rad)), sinR = Math.abs(Math.sin(rad));
+      const bw = estW * cosR + estH * sinR;
+      const bh = estW * sinR + estH * cosR;
+      const box = { x: x - bw/2, y: y - bh/2, w: bw, h: bh };
+
+      // Check inside circle
+      const corners = [[box.x, box.y],[box.x+bw,box.y],[box.x,box.y+bh],[box.x+bw,box.y+bh]];
+      let inside = true;
+      for (const [cx, cy] of corners) {
+        if (Math.hypot(cx - R, cy - R) > R * 0.88) { inside = false; break; }
+      }
+      if (!inside) continue;
+
+      let overlap = false;
+      for (const p of placed) {
+        if (box.x < p.x + p.w + 2 && box.x + bw + 2 > p.x && box.y < p.y + p.h + 2 && box.y + bh + 2 > p.y) {
+          overlap = true; break;
+        }
+      }
+      if (!overlap) { bestPos = { x, y, box }; break; }
+    }
+
+    if (!bestPos) {
+      // fallback: just place it
+      const x = R + (Math.random()-0.5) * R * 0.6;
+      const y = R + (Math.random()-0.5) * R * 0.6;
+      const estW = word.length * fontSize * 0.65;
+      const estH = fontSize * 1.2;
+      bestPos = { x, y, box: { x: x-estW/2, y: y-estH/2, w: estW, h: estH }};
+    }
+    placed.push(bestPos.box);
+
+    const el = document.createElement('div');
+    el.className = 'card-word';
+    el.textContent = word;
+    el.style.cssText = `font-size:${fontSize}px;color:${color};left:${bestPos.x}px;top:${bestPos.y}px;transform:translate(-50%,-50%) rotate(${rotation}deg);`;
+    el.addEventListener('click', (e) => { e.stopPropagation(); onWordClick(word, player); });
+    el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); onWordClick(word, player); });
+    cardEl.appendChild(el);
+  }
+}
+
+function drawCards() {
+  placeWords(document.getElementById('card1'), card1Idx, 1);
+  placeWords(document.getElementById('card2'), card2Idx, 2);
+}
+
+function onWordClick(word, player) {
+  if (locked) return;
+  const match = findMatch(card1Idx, card2Idx);
+  if (word === match) {
+    locked = true;
+    scores[player - 1]++;
+    updateScores();
+
+    if (scores[player - 1] >= WIN_SCORE) {
+      showWin(player);
+      return;
+    }
+
+    // Flash
+    const overlay = document.getElementById('flashOverlay');
+    document.getElementById('flashWord1').textContent = match;
+    document.getElementById('flashWord2').textContent = match;
+    overlay.style.display = 'flex';
+
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      nextRound();
+      locked = false;
+    }, 1800);
+  }
+}
+
+function nextRound() {
+  if (deck.length < 2) {
+    deck = shuffle([...Array(57).keys()]);
+  }
+  card1Idx = deck.pop();
+  card2Idx = deck.pop();
+  drawCards();
+}
+
+function updateScores() {
+  document.getElementById('score1').textContent = `ИГРОК 1: ${scores[0]}`;
+  document.getElementById('score2').textContent = `ИГРОК 2: ${scores[1]}`;
+  localStorage.setItem('dobble-scores', JSON.stringify(scores));
+}
+
+function showWin(player) {
+  const ws = document.getElementById('winScreen');
+  document.getElementById('winText').textContent = `ИГРОК ${player} НАБРАЛ ${scores[player-1]} ОЧКОВ!`;
+  ws.style.display = 'flex';
+}
+
+function startGame() {
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('winScreen').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'block';
+  scores = [0, 0];
+  deck = shuffle([...Array(57).keys()]);
+  updateScores();
+  locked = false;
+  nextRound();
+}
+</script>
+</body>
+</html>
